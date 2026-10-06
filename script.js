@@ -1,83 +1,73 @@
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d",{alpha:false});
-const video=document.getElementById("source");
-const sequence=document.getElementById("sequence");
-const progressEl=document.getElementById("progress");
-const frameEl=document.getElementById("frame");
+const canvas=document.getElementById("sequence");
+const ctx=canvas.getContext("2d");
+const section=document.getElementById("camera-sequence");
+const progress=document.getElementById("progress");
+const counter=document.getElementById("counter");
+const loading=document.getElementById("loading");
 
 const FRAME_COUNT=169;
-let target=0;
-let displayed=0;
-let lastTime=-1;
-let seeking=false;
-let pendingTime=null;
-let ready=false;
+const images=[];
+let currentFrame=0;
+let targetFrame=0;
+let loaded=0;
 
-function resize(){
+for(let i=0;i<FRAME_COUNT;i++){
+  const image=new Image();
+  image.decoding="async";
+  image.src=`frames/frame-${String(i+1).padStart(3,"0")}.jpg`;
+  image.onload=()=>{
+    loaded++;
+    loading.querySelector("b").textContent=Math.round(loaded/FRAME_COUNT*100)+"%";
+    if(loaded===FRAME_COUNT) loading.style.opacity="0";
+    drawFrame(currentFrame);
+  };
+  image.onerror=()=>console.warn("Missing frame:",image.src);
+  images.push(image);
+}
+
+function resizeCanvas(){
   const dpr=Math.min(window.devicePixelRatio||1,2);
-  canvas.width=Math.round(innerWidth*dpr);
-  canvas.height=Math.round(innerHeight*dpr);
-  canvas.style.width=innerWidth+"px";
-  canvas.style.height=innerHeight+"px";
+  canvas.width=innerWidth*dpr;
+  canvas.height=innerHeight*dpr;
+  canvas.style.width="100vw";
+  canvas.style.height="100vh";
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  draw();
+  drawFrame(currentFrame);
 }
 
-function draw(){
-  if(!ready || video.readyState<2) return;
+function drawFrame(frame){
+  const image=images[Math.round(frame)];
+  if(!image||!image.complete||!image.naturalWidth)return;
+
   const vw=innerWidth,vh=innerHeight;
-  const scale=Math.max(vw/video.videoWidth,vh/video.videoHeight);
-  const w=video.videoWidth*scale,h=video.videoHeight*scale;
-  const x=(vw-w)/2,y=(vh-h)/2;
-  ctx.fillStyle="#080808";
-  ctx.fillRect(0,0,vw,vh);
-  ctx.drawImage(video,x,y,w,h);
+  const scale=Math.max(vw/image.naturalWidth,vh/image.naturalHeight);
+  const width=image.naturalWidth*scale;
+  const height=image.naturalHeight*scale;
+  const x=(vw-width)/2;
+  const y=(vh-height)/2;
+
+  ctx.clearRect(0,0,vw,vh);
+  ctx.drawImage(image,x,y,width,height);
 }
 
-function seek(time){
-  if(!ready) return;
-  if(seeking){pendingTime=time;return}
-  if(Math.abs(video.currentTime-time)<0.008){draw();return}
-  seeking=true;
-  pendingTime=null;
-  video.currentTime=Math.max(0,Math.min(video.duration||0,time));
+function updateScroll(){
+  const rect=section.getBoundingClientRect();
+  const scrollable=section.offsetHeight-innerHeight;
+  const progressValue=Math.min(1,Math.max(0,-rect.top/scrollable));
+  targetFrame=progressValue*(FRAME_COUNT-1);
+  progress.style.width=(progressValue*100)+"%";
+  counter.textContent=String(Math.round(targetFrame)+1).padStart(3,"0")+" / "+FRAME_COUNT;
 }
 
-video.addEventListener("loadedmetadata",()=>{
-  ready=true;
-  resize();
-  seek(0);
-});
-
-video.addEventListener("seeked",()=>{
-  seeking=false;
-  draw();
-  if(pendingTime!==null){
-    const t=pendingTime;
-    pendingTime=null;
-    seek(t);
-  }
-});
-
-function updateTarget(){
-  const rect=sequence.getBoundingClientRect();
-  const travel=Math.max(1,sequence.offsetHeight-innerHeight);
-  const p=Math.max(0,Math.min(1,-rect.top/travel));
-  target=p*(FRAME_COUNT-1);
-  progressEl.style.width=(p*100)+"%";
-  frameEl.textContent=String(Math.round(target)+1).padStart(3,"0")+" / "+FRAME_COUNT;
+function animate(){
+  currentFrame+=(targetFrame-currentFrame)*0.15;
+  if(Math.abs(targetFrame-currentFrame)<0.01)currentFrame=targetFrame;
+  drawFrame(currentFrame);
+  requestAnimationFrame(animate);
 }
 
-function tick(){
-  displayed+=(target-displayed)*0.18;
-  if(Math.abs(target-displayed)<0.01) displayed=target;
-  const duration=video.duration||5.64;
-  const t=(displayed/(FRAME_COUNT-1))*duration;
-  seek(t);
-  requestAnimationFrame(tick);
-}
-
-window.addEventListener("scroll",updateTarget,{passive:true});
-window.addEventListener("resize",resize);
-window.addEventListener("load",()=>{updateTarget();tick()});
-resize();
+addEventListener("scroll",updateScroll,{passive:true});
+addEventListener("resize",resizeCanvas);
+resizeCanvas();
+updateScroll();
+animate();
