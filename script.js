@@ -1,108 +1,87 @@
-const section = document.getElementById("camera-sequence");
-const video = document.getElementById("camera");
-const loading = document.getElementById("loading");
-const counter = document.getElementById("counter");
-const progressBar = document.getElementById("progress");
-const hint = document.getElementById("hint");
+const canvas=document.getElementById("sequence");
+const ctx=canvas.getContext("2d");
+const section=document.getElementById("camera-sequence");
+const loading=document.getElementById("loading");
+const counter=document.getElementById("counter");
+const progress=document.getElementById("progress");
 
-let duration = 0;
-let target = 0;
-let current = 0;
-let ready = false;
-let primed = false;
-let raf = 0;
+const TOTAL=169;
+const images=new Array(TOTAL);
+const loadingFrames=new Map();
+let current=0,target=0,last=-1,ready=false;
 
-function setLoading(percent, label) {
-  const b = loading.querySelector("b");
-  loading.firstChild.textContent = label + " ";
-  if (b) b.textContent = Math.round(percent) + "%";
-  if (percent >= 100) {
-    setTimeout(() => loading.classList.add("done"), 250);
-  }
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=Math.round(innerWidth*dpr);
+  canvas.height=Math.round(innerHeight*dpr);
+  canvas.style.width="100vw";canvas.style.height="100vh";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw(last<0?0:last);
 }
-
-function updateScroll() {
-  if (!duration) return;
-
-  const rect = section.getBoundingClientRect();
-  const range = Math.max(1, section.offsetHeight - innerHeight);
-  const progress = Math.max(0, Math.min(1, -rect.top / range));
-
-  target = progress * Math.max(0, duration - 0.05);
-
-  progressBar.style.width = (progress * 100) + "%";
-  counter.textContent =
-    current.toFixed(1).padStart(4, "0") + "s / " + duration.toFixed(1) + "s";
-
-  if (progress > 0.015) hint.textContent = "Scroll to control the camera";
+function url(i){return "./frames/frame-"+String(i+1).padStart(3,"0")+".jpg";}
+function load(i){
+  if(i<0||i>=TOTAL||images[i]) return Promise.resolve(!!images[i]);
+  if(loadingFrames.has(i)) return loadingFrames.get(i);
+  const p=new Promise(resolve=>{
+    const im=new Image();
+    im.decoding="async";
+    im.onload=()=>{images[i]=im;loadingFrames.delete(i);resolve(true);};
+    im.onerror=()=>{loadingFrames.delete(i);resolve(false);};
+    im.src=url(i);
+  });
+  loadingFrames.set(i,p);return p;
 }
-
-async function primeVideo() {
-  if (primed) return;
-  primed = true;
-
-  // Muted + playsinline lets iOS/Safari initialize the decoder.
-  try {
-    await video.play();
-    video.pause();
-  } catch (_) {
-    // Seeking still works on browsers that reject autoplay.
+async function warm(center){
+  const radius=12;
+  const jobs=[];
+  for(let d=0;d<=radius;d++){
+    if(center-d>=0)jobs.push(load(center-d));
+    if(d&&center+d<TOTAL)jobs.push(load(center+d));
   }
-
-  try { video.currentTime = 0.001; } catch (_) {}
+  await Promise.all(jobs);
 }
-
-function render() {
-  if (ready) {
-    // Smoothly follow the scroll position.
-    current += (target - current) * 0.28;
-    if (Math.abs(target - current) < 0.008) current = target;
-
-    // Direct seeking is deliberately done every animation frame.
-    // This is more reliable on Safari/iPhone than waiting for scroll events.
-    if (Math.abs(video.currentTime - current) > 0.012) {
-      try { video.currentTime = current; } catch (_) {}
-    }
-
-    counter.textContent =
-      current.toFixed(1).padStart(4, "0") + "s / " + duration.toFixed(1) + "s";
+function nearest(i){
+  if(images[i])return i;
+  for(let d=1;d<TOTAL;d++){
+    if(i-d>=0&&images[i-d])return i-d;
+    if(i+d<TOTAL&&images[i+d])return i+d;
   }
-
-  raf = requestAnimationFrame(render);
+  return -1;
 }
-
-video.addEventListener("loadedmetadata", async () => {
-  duration = video.duration;
-
-  if (!Number.isFinite(duration) || duration <= 0) {
-    loading.classList.add("error");
-    loading.innerHTML = "CAMERA LOAD FAILED — <b>NO DURATION</b>";
-    return;
-  }
-
-  ready = true;
-  setLoading(70, "INITIALIZING CAMERA");
-  await primeVideo();
-
-  try { video.currentTime = 0; } catch (_) {}
-
-  setLoading(100, "CAMERA READY");
-  updateScroll();
-});
-
-video.addEventListener("canplay", () => {
-  if (duration) setLoading(100, "CAMERA READY");
-});
-
-video.addEventListener("error", () => {
-  console.error("Camera video error:", video.error);
-  loading.classList.add("error");
-  loading.innerHTML = "CAMERA LOAD FAILED — <b>MP4 ERROR</b>";
-});
-
-window.addEventListener("scroll", updateScroll, { passive: true });
-window.addEventListener("resize", updateScroll, { passive: true });
-
-video.load();
-updateScroll();
-render();
+function draw(i){
+  if(!ready)return;
+  const n=nearest(Math.round(i));
+  if(n<0||n===last)return;
+  const im=images[n],vw=innerWidth,vh=innerHeight;
+  const scale=Math.max(vw/im.naturalWidth,vh/im.naturalHeight);
+  const w=im.naturalWidth*scale,h=im.naturalHeight*scale;
+  ctx.fillStyle="#070707";ctx.fillRect(0,0,vw,vh);
+  ctx.drawImage(im,(vw-w)/2,(vh-h)/2,w,h);last=n;
+}
+function scrollUpdate(){
+  const rect=section.getBoundingClientRect();
+  const range=Math.max(1,section.offsetHeight-innerHeight);
+  const p=Math.max(0,Math.min(1,-rect.top/range));
+  target=p*(TOTAL-1);
+  progress.style.width=(p*100)+"%";
+  counter.textContent=String(Math.round(target)+1).padStart(3,"0")+" / "+TOTAL;
+  warm(Math.round(target));
+}
+function animate(){
+  current+=(target-current)*.22;
+  if(Math.abs(target-current)<.02)current=target;
+  draw(current);
+  requestAnimationFrame(animate);
+}
+(async function(){
+  resize();
+  loading.firstChild.textContent="LOADING CAMERA ";
+  await load(0);
+  ready=!!images[0];
+  if(!ready){loading.classList.add("error");loading.innerHTML="CAMERA LOAD FAILED — <b>FRAME 001</b>";return;}
+  draw(0);loading.querySelector("b").textContent="100%";
+  setTimeout(()=>loading.classList.add("done"),300);
+  scrollUpdate();animate();
+})();
+addEventListener("resize",()=>{resize();scrollUpdate();});
+addEventListener("scroll",scrollUpdate,{passive:true});
