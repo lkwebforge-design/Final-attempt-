@@ -11,29 +11,23 @@
 <body>
 <main>
 <section class="camera-sequence" id="camera-sequence">
-  <video id="camera" playsinline muted preload="auto" aria-label="Scroll controlled camera sequence">
-    <source src="./DAD11FBC-C257-4ED7-B269-BC67BDB22D2B.MP4" type="video/mp4">
-  </video>
-
+  <canvas id="sequence" aria-label="Scroll controlled camera sequence"></canvas>
   <div class="topbar">
     <span>CAMERA / 01</span>
-    <span id="counter">00.0s / —</span>
+    <span id="counter">001 / 169</span>
   </div>
-
   <div class="intro">
     <p>SCROLL-DRIVEN OBJECT STUDY</p>
     <h1>Every scroll.<br><i>One frame.</i></h1>
-    <span id="hint">Scroll to explore ↓</span>
+    <span>Scroll to explore ↓</span>
   </div>
-
   <div class="loading" id="loading">LOADING CAMERA <b>0%</b></div>
   <div class="bar"><span id="progress"></span></div>
 </section>
-
 <section class="next-section">
   <p class="eyebrow">THE SEQUENCE</p>
   <h2>A camera that moves<br>with your scroll.</h2>
-  <p>The camera position is controlled by your scroll position. Scroll down to move forward and back up to reverse.</p>
+  <p>The camera frames are extracted during deployment and played directly from the generated frame sequence.</p>
   <a href="#camera-sequence">Replay ↑</a>
 </section>
 </main>
