@@ -1,156 +1,179 @@
 const canvas = document.getElementById("sequence");
 const ctx = canvas.getContext("2d", { alpha: false });
+const section = document.getElementById("camera-sequence");
 const loading = document.getElementById("loading");
 const counter = document.getElementById("counter");
 const progressBar = document.getElementById("progress");
 
-const FRAME_COUNT = 169;
-const images = new Array(FRAME_COUNT).fill(null);
-const loaded = new Array(FRAME_COUNT).fill(false);
+const ZIP_URL = "./Final-attempt-camera-frames.zip";
+const MAX_DPR = 2;
 
+let frames = [];
+let images = [];
+let loaded = [];
 let targetFrame = 0;
 let currentFrame = 0;
 let lastDrawnFrame = 0;
-let firstFrameReady = false;
-let lastPreloadCenter = -1;
+let ready = false;
+let raf = 0;
+let objectUrls = [];
 
-function frameSrc(index) {
-  return "frames/frame-" + String(index + 1).padStart(3, "0") + ".jpg";
+function setLoading(percent, text = "LOADING CAMERA") {
+  if (!loading) return;
+  const b = loading.querySelector("b");
+  loading.firstChild.textContent = text + " ";
+  if (b) b.textContent = Math.round(percent) + "%";
+  if (percent >= 100) setTimeout(() => loading.classList.add("done"), 350);
 }
 
 function resizeCanvas() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-  canvas.width = Math.round(window.innerWidth * dpr);
-  canvas.height = Math.round(window.innerHeight * dpr);
+  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  canvas.width = Math.max(1, Math.round(window.innerWidth * dpr));
+  canvas.height = Math.max(1, Math.round(window.innerHeight * dpr));
   canvas.style.width = "100vw";
   canvas.style.height = "100vh";
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawFrame(lastDrawnFrame);
 }
 
-function loadFrame(index) {
-  if (index < 0 || index >= FRAME_COUNT || images[index]) return;
-
-  const image = new Image();
-  image.decoding = "async";
-  images[index] = image;
-
-  image.onload = () => {
-    loaded[index] = true;
-
-    if (!firstFrameReady && index === 0) {
-      firstFrameReady = true;
-      if (loading) loading.style.display = "none";
-      drawFrame(0);
-    }
-
-    if (Math.abs(index - Math.round(currentFrame)) <= 1) {
-      drawFrame(index);
-    }
-  };
-
-  image.onerror = () => {
-    images[index] = null;
-    loaded[index] = false;
-  };
-
-  image.src = frameSrc(index);
+function sortFrames(names) {
+  return names
+    .filter(name => /\.(jpe?g|png|webp)$/i.test(name))
+    .sort((a, b) => {
+      const na = (a.match(/\d+/g) || []).map(Number);
+      const nb = (b.match(/\d+/g) || []).map(Number);
+      if (na.length && nb.length) {
+        for (let i = 0; i < Math.min(na.length, nb.length); i++) {
+          if (na[i] !== nb[i]) return na[i] - nb[i];
+        }
+      }
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
 }
 
-function preloadAround(center) {
-  center = Math.max(0, Math.min(FRAME_COUNT - 1, center));
+async function loadSequence() {
+  try {
+    if (!window.JSZip) throw new Error("JSZip failed to load.");
 
-  if (center === lastPreloadCenter) return;
-  lastPreloadCenter = center;
+    setLoading(5, "DOWNLOADING CAMERA");
+    const response = await fetch(ZIP_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error("Camera ZIP request failed: " + response.status);
 
-  // Load the target first, then a generous window around it.
-  loadFrame(center);
+    const blob = await response.blob();
+    setLoading(20, "OPENING CAMERA");
+    const zip = await JSZip.loadAsync(blob);
 
-  for (let distance = 1; distance <= 18; distance++) {
-    loadFrame(center - distance);
-    loadFrame(center + distance);
+    frames = sortFrames(Object.keys(zip.files).filter(name => !zip.files[name].dir));
+    if (!frames.length) throw new Error("No image frames found inside the ZIP.");
+
+    images = new Array(frames.length).fill(null);
+    loaded = new Array(frames.length).fill(false);
+    counter.textContent = "001 / " + frames.length;
+
+    // Decode frames progressively. The first frame is loaded immediately,
+    // then the remaining frames are decoded in small batches.
+    const decode = async (index) => {
+      if (loaded[index] || images[index]) return;
+      const file = zip.file(frames[index]);
+      if (!file) return;
+      const bytes = await file.async("blob");
+      const url = URL.createObjectURL(bytes);
+      objectUrls.push(url);
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      await img.decode().catch(() => {});
+      images[index] = img;
+      loaded[index] = true;
+    };
+
+    await decode(0);
+    ready = true;
+    setLoading(100, "CAMERA READY");
+    drawFrame(0);
+
+    // Decode in the background so scrolling can start immediately.
+    let next = 1;
+    const batch = async () => {
+      const end = Math.min(next + 5, frames.length);
+      for (; next < end; next++) {
+        try { await decode(next); } catch (_) {}
+      }
+      if (next < frames.length) {
+        const pct = 10 + (next / frames.length) * 90;
+        setLoading(pct, "PREPARING CAMERA");
+        setTimeout(batch, 0);
+      }
+    };
+    batch();
+  } catch (error) {
+    console.error(error);
+    if (loading) {
+      loading.classList.add("error");
+      loading.innerHTML = "CAMERA LOAD FAILED — <b>CHECK ZIP</b>";
+    }
   }
 }
 
-function getNearestLoadedFrame(index) {
-  index = Math.max(0, Math.min(FRAME_COUNT - 1, index));
-
+function nearestLoaded(index) {
+  if (!images.length) return -1;
+  index = Math.max(0, Math.min(images.length - 1, index));
   if (loaded[index]) return index;
 
-  for (let distance = 1; distance <= 18; distance++) {
-    if (loaded[index - distance]) return index - distance;
-    if (loaded[index + distance]) return index + distance;
+  for (let d = 1; d < images.length; d++) {
+    if (loaded[index - d]) return index - d;
+    if (loaded[index + d]) return index + d;
+    if (d > 20) break;
   }
-
   return lastDrawnFrame;
 }
 
 function drawFrame(frame) {
-  const index = getNearestLoadedFrame(Math.round(frame));
+  if (!ready || !images.length) return;
+  const index = nearestLoaded(Math.round(frame));
   const image = images[index];
-
-  if (!image || !loaded[index]) return;
+  if (!image || !image.naturalWidth) return;
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-
-  const scale = Math.max(
-    vw / image.naturalWidth,
-    vh / image.naturalHeight
-  );
-
-  const width = image.naturalWidth * scale;
-  const height = image.naturalHeight * scale;
-  const x = (vw - width) / 2;
-  const y = (vh - height) / 2;
+  const scale = Math.max(vw / image.naturalWidth, vh / image.naturalHeight);
+  const w = image.naturalWidth * scale;
+  const h = image.naturalHeight * scale;
+  const x = (vw - w) / 2;
+  const y = (vh - h) / 2;
 
   ctx.fillStyle = "#070707";
   ctx.fillRect(0, 0, vw, vh);
-  ctx.drawImage(image, x, y, width, height);
-
+  ctx.drawImage(image, x, y, w, h);
   lastDrawnFrame = index;
 }
 
 function updateScroll() {
-  const section = document.getElementById("camera-sequence");
-  if (!section) return;
-
+  if (!section || !frames.length) return;
   const rect = section.getBoundingClientRect();
   const scrollable = Math.max(1, section.offsetHeight - window.innerHeight);
-  const progress = Math.min(1, Math.max(0, -rect.top / scrollable));
+  const progress = Math.max(0, Math.min(1, -rect.top / scrollable));
 
-  targetFrame = progress * (FRAME_COUNT - 1);
+  targetFrame = progress * (frames.length - 1);
 
-  const targetIndex = Math.round(targetFrame);
-  preloadAround(targetIndex);
-
-  if (progressBar) {
-    progressBar.style.width = (progress * 100) + "%";
-  }
-
-  if (counter) {
-    counter.textContent =
-      String(targetIndex + 1).padStart(3, "0") + " / " + FRAME_COUNT;
-  }
+  if (progressBar) progressBar.style.width = (progress * 100) + "%";
+  if (counter) counter.textContent =
+    String(Math.round(targetFrame) + 1).padStart(3, "0") + " / " + frames.length;
 }
 
 function animate() {
-  currentFrame += (targetFrame - currentFrame) * 0.22;
-
-  if (Math.abs(targetFrame - currentFrame) < 0.02) {
-    currentFrame = targetFrame;
-  }
-
+  currentFrame += (targetFrame - currentFrame) * 0.18;
+  if (Math.abs(targetFrame - currentFrame) < 0.02) currentFrame = targetFrame;
   drawFrame(currentFrame);
-  requestAnimationFrame(animate);
+  raf = requestAnimationFrame(animate);
 }
 
-window.addEventListener("scroll", updateScroll, { passive: true });
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("scroll", updateScroll, { passive: true });
+window.addEventListener("beforeunload", () => objectUrls.forEach(URL.revokeObjectURL));
 
-preloadAround(0);
 resizeCanvas();
+loadSequence();
 updateScroll();
+cancelAnimationFrame(raf);
 animate();
