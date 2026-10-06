@@ -5,26 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070707">
 <meta name="description" content="A cinematic camera experience controlled by scrolling.">
+<link rel="preload" as="image" href="./frames/frame-001.jpg">
 <title>Camera — Scroll Experience</title>
 <link rel="stylesheet" href="camera.css">
 </head>
 <body>
 <main>
 <section class="camera-sequence" id="camera-sequence">
-  <video id="camera-video" muted playsinline preload="auto" aria-label="Camera scroll sequence">
-    <source src="./DAD11FBC-C257-4ED7-B269-BC67BDB22D2B.MP4" type="video/mp4">
-  </video>
-  <div class="topbar"><span>CAMERA / 01</span><span id="counter">001</span></div>
+  <img id="sequence-frame" src="./frames/frame-001.jpg" alt="Camera sequence frame" draggable="false">
+  <div class="topbar"><span>CAMERA / 01</span><span id="counter">001 / 169</span></div>
   <div class="intro"><p>SCROLL-DRIVEN OBJECT STUDY</p><h1>Every scroll.<br><i>One frame.</i></h1><span>Scroll to explore ↓</span></div>
   <div class="bar"><span id="progress"></span></div>
 </section>
 <section class="next-section">
   <p class="eyebrow">THE SEQUENCE</p>
   <h2>A camera that moves<br>with your scroll.</h2>
-  <p>The camera moves through the sequence as you scroll.</p>
+  <p>The camera frames are extracted during deployment and played directly from the generated frame sequence.</p>
   <a href="#camera-sequence">Replay ↑</a>
 </section>
 </main>
-<script src="script.js"></script>
+<script src="script.js?v=7"></script>
 </body>
 </html>
