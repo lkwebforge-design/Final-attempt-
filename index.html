@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="A cinematic camera reveal controlled entirely by scroll.">
+  <title>Camera — Scroll Sequence</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <section class="sequence" id="sequence">
+      <video id="source" muted playsinline preload="auto" aria-hidden="true">
+        <source src="assets/camera-sequence.mp4" type="video/mp4">
+      </video>
+
+      <canvas id="canvas" aria-label="Interactive camera animation"></canvas>
+
+      <div class="hud">
+        <div class="brand">CAMERA / 01</div>
+        <div class="progress"><span id="progress"></span></div>
+        <div class="frame" id="frame">001 / 169</div>
+      </div>
+
+      <div class="intro">
+        <p class="eyebrow">SCROLL-DRIVEN OBJECT STUDY</p>
+        <h1>Every scroll<br><em>moves the camera.</em></h1>
+        <p class="hint">Scroll to explore the sequence</p>
+      </div>
+
+      <div class="sequence-end">
+        <span>END OF SEQUENCE</span>
+      </div>
+    </section>
+
+    <section class="after">
+      <div>
+        <p class="eyebrow">THE EXPERIENCE</p>
+        <h2>A product reveal<br>that follows your hand.</h2>
+        <p class="copy">The camera is rendered onto a canvas while your scroll position controls the exact point in the sequence. Scroll back up and the motion reverses naturally.</p>
+        <a href="#sequence">Replay sequence</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
