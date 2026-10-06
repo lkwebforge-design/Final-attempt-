@@ -7,7 +7,7 @@ const TOTAL=169;
 const cache=new Map();
 let current=0,target=0,shown=-1;
 
-function url(i){return "./frames/frame-"+String(i+1).padStart(3,"0")+".jpg?v=7";}
+function url(i){return "/Final-attempt-/frames/frame-"+String(i+1).padStart(3,"0")+".jpg?v=7";}
 
 function load(i){
   if(i<0||i>=TOTAL)return Promise.resolve(false);
