@@ -7,6 +7,7 @@ const progress=document.getElementById("progress");
 const TOTAL=169;
 const cache=new Map();
 let current=0,target=0,shown=-1;
+let fallbackVideo=null;
 
 function url(i){return "./frames/frame-"+String(i+1).padStart(3,"0")+".jpg";}
 
@@ -21,6 +22,30 @@ function load(i){
   });
   cache.set(i,p);
   return p;
+}
+
+function showFallback(){
+  if(fallbackVideo)return;
+  fallbackVideo=document.createElement("video");
+  fallbackVideo.src="./DAD11FBC-C257-4ED7-B269-BC67BDB22D2B.MP4";
+  fallbackVideo.autoplay=true;
+  fallbackVideo.muted=true;
+  fallbackVideo.loop=true;
+  fallbackVideo.playsInline=true;
+  fallbackVideo.setAttribute("playsinline","");
+  Object.assign(fallbackVideo.style,{position:"fixed",inset:"0",width:"100vw",height:"100vh",objectFit:"cover",zIndex:"1",background:"#070707"});
+  document.body.insertBefore(fallbackVideo,document.body.firstChild);
+  frame.style.display="none";
+  fallbackVideo.play().catch(()=>{});
+}
+
+function hideFallback(){
+  if(fallbackVideo){
+    fallbackVideo.pause();
+    fallbackVideo.remove();
+    fallbackVideo=null;
+  }
+  frame.style.display="block";
 }
 
 function show(i){
@@ -56,23 +81,16 @@ function animate(){
   requestAnimationFrame(animate);
 }
 
-frame.addEventListener("load",()=>{
-  loading.querySelector("b").textContent="100%";
-  setTimeout(()=>loading.classList.add("done"),250);
-});
-
-frame.addEventListener("error",()=>{
-  loading.classList.remove("done");
-  loading.classList.add("error");
-  loading.innerHTML="CAMERA LOAD FAILED — <b>FRAME 001</b>";
-});
+frame.addEventListener("load",()=>{ hideFallback(); });
+frame.addEventListener("error",showFallback);
 
 (async function(){
   show(0);
   const ok=await load(0);
   if(!ok){
-    loading.classList.add("error");
-    loading.innerHTML="CAMERA LOAD FAILED — <b>FRAME 001</b>";
+    showFallback();
+    scrollUpdate();
+    animate();
     return;
   }
   frame.src=url(0);
