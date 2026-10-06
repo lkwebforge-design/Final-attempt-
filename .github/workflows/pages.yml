@@ -26,7 +26,7 @@ jobs:
 
       - name: Extract camera frames
         run: |
-          unzip -o "Final-attempt-camera-frames.zip" -d .
+          unzip -o "Final-attempt-camera-frames.zip" "frames/*" -d .
           test -f frames/frame-001.jpg
           test -f frames/frame-169.jpg
           echo "Camera frames ready: $(find frames -name 'frame-*.jpg' | wc -l)"
