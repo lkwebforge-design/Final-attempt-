@@ -4,46 +4,113 @@ const loading = document.getElementById("loading");
 const counter = document.getElementById("counter");
 const progressBar = document.getElementById("progress");
 
-const video = document.createElement("video");
-video.crossOrigin = "anonymous";
-video.preload = "auto";
-video.muted = true;
-video.playsInline = true;
-video.setAttribute("playsinline", "");
-video.setAttribute("webkit-playsinline", "");
+const FRAME_COUNT = 169;
+const images = new Array(FRAME_COUNT).fill(null);
+const loaded = new Array(FRAME_COUNT).fill(false);
 
-// Use a CDN copy of the GitHub file so mobile Safari can fetch the MP4 reliably.
-video.src = "https://cdn.jsdelivr.net/gh/lkwebforge-design/Final-attempt-@main/DAD11FBC-C257-4ED7-B269-BC67BDB22D2B.MP4";
+let targetFrame = 0;
+let currentFrame = 0;
+let lastDrawnFrame = 0;
+let firstFrameReady = false;
+let lastPreloadCenter = -1;
 
-let targetProgress = 0;
-let currentProgress = 0;
-let ready = false;
-let drawing = false;
+function frameSrc(index) {
+  return "frames/frame-" + String(index + 1).padStart(3, "0") + ".jpg";
+}
 
 function resizeCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
   canvas.width = Math.round(window.innerWidth * dpr);
   canvas.height = Math.round(window.innerHeight * dpr);
   canvas.style.width = "100vw";
   canvas.style.height = "100vh";
+
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  draw();
+  drawFrame(lastDrawnFrame);
 }
 
-function draw() {
-  if (!ready || !video.videoWidth || video.readyState < 2) return;
+function loadFrame(index) {
+  if (index < 0 || index >= FRAME_COUNT || images[index]) return;
+
+  const image = new Image();
+  image.decoding = "async";
+  images[index] = image;
+
+  image.onload = () => {
+    loaded[index] = true;
+
+    if (!firstFrameReady && index === 0) {
+      firstFrameReady = true;
+      if (loading) loading.style.display = "none";
+      drawFrame(0);
+    }
+
+    if (Math.abs(index - Math.round(currentFrame)) <= 1) {
+      drawFrame(index);
+    }
+  };
+
+  image.onerror = () => {
+    images[index] = null;
+    loaded[index] = false;
+  };
+
+  image.src = frameSrc(index);
+}
+
+function preloadAround(center) {
+  center = Math.max(0, Math.min(FRAME_COUNT - 1, center));
+
+  if (center === lastPreloadCenter) return;
+  lastPreloadCenter = center;
+
+  // Load the target first, then a generous window around it.
+  loadFrame(center);
+
+  for (let distance = 1; distance <= 18; distance++) {
+    loadFrame(center - distance);
+    loadFrame(center + distance);
+  }
+}
+
+function getNearestLoadedFrame(index) {
+  index = Math.max(0, Math.min(FRAME_COUNT - 1, index));
+
+  if (loaded[index]) return index;
+
+  for (let distance = 1; distance <= 18; distance++) {
+    if (loaded[index - distance]) return index - distance;
+    if (loaded[index + distance]) return index + distance;
+  }
+
+  return lastDrawnFrame;
+}
+
+function drawFrame(frame) {
+  const index = getNearestLoadedFrame(Math.round(frame));
+  const image = images[index];
+
+  if (!image || !loaded[index]) return;
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const scale = Math.max(vw / video.videoWidth, vh / video.videoHeight);
-  const w = video.videoWidth * scale;
-  const h = video.videoHeight * scale;
-  const x = (vw - w) / 2;
-  const y = (vh - h) / 2;
+
+  const scale = Math.max(
+    vw / image.naturalWidth,
+    vh / image.naturalHeight
+  );
+
+  const width = image.naturalWidth * scale;
+  const height = image.naturalHeight * scale;
+  const x = (vw - width) / 2;
+  const y = (vh - height) / 2;
 
   ctx.fillStyle = "#070707";
   ctx.fillRect(0, 0, vw, vh);
-  ctx.drawImage(video, x, y, w, h);
+  ctx.drawImage(image, x, y, width, height);
+
+  lastDrawnFrame = index;
 }
 
 function updateScroll() {
@@ -52,67 +119,38 @@ function updateScroll() {
 
   const rect = section.getBoundingClientRect();
   const scrollable = Math.max(1, section.offsetHeight - window.innerHeight);
-  targetProgress = Math.min(1, Math.max(0, -rect.top / scrollable));
+  const progress = Math.min(1, Math.max(0, -rect.top / scrollable));
 
-  if (progressBar) progressBar.style.width = (targetProgress * 100) + "%";
-  if (counter) {
-    const frame = Math.min(169, Math.max(1, Math.round(targetProgress * 168) + 1));
-    counter.textContent = String(frame).padStart(3, "0") + " / 169";
+  targetFrame = progress * (FRAME_COUNT - 1);
+
+  const targetIndex = Math.round(targetFrame);
+  preloadAround(targetIndex);
+
+  if (progressBar) {
+    progressBar.style.width = (progress * 100) + "%";
   }
-}
 
-function seekToProgress(progress) {
-  if (!video.duration || !isFinite(video.duration)) return;
-  const time = progress * Math.max(0, video.duration - 0.02);
-
-  if (Math.abs(video.currentTime - time) > 0.006) {
-    video.currentTime = time;
+  if (counter) {
+    counter.textContent =
+      String(targetIndex + 1).padStart(3, "0") + " / " + FRAME_COUNT;
   }
 }
 
 function animate() {
-  currentProgress += (targetProgress - currentProgress) * 0.22;
+  currentFrame += (targetFrame - currentFrame) * 0.22;
 
-  if (Math.abs(targetProgress - currentProgress) < 0.0005) {
-    currentProgress = targetProgress;
+  if (Math.abs(targetFrame - currentFrame) < 0.02) {
+    currentFrame = targetFrame;
   }
 
-  seekToProgress(currentProgress);
-  draw();
+  drawFrame(currentFrame);
   requestAnimationFrame(animate);
 }
-
-video.addEventListener("loadedmetadata", () => {
-  ready = true;
-  if (loading) loading.style.display = "none";
-  seekToProgress(0);
-  draw();
-});
-
-video.addEventListener("loadeddata", () => {
-  ready = true;
-  draw();
-});
-
-video.addEventListener("canplay", () => {
-  ready = true;
-  if (loading) loading.style.display = "none";
-  draw();
-});
-
-video.addEventListener("seeked", draw);
-
-video.addEventListener("error", () => {
-  if (loading) {
-    loading.textContent = "SEQUENCE FAILED TO LOAD";
-    loading.style.display = "block";
-  }
-});
 
 window.addEventListener("scroll", updateScroll, { passive: true });
 window.addEventListener("resize", resizeCanvas);
 
-video.load();
+preloadAround(0);
 resizeCanvas();
 updateScroll();
 animate();
