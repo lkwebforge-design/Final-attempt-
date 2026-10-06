@@ -4,7 +4,7 @@
 html{scroll-behavior:auto;background:#070707}
 body{margin:0;background:#070707;color:var(--fg);font-family:Manrope,system-ui,sans-serif}
 .camera-sequence{position:relative;height:700vh;background:#070707}
-#sequence-frame{position:fixed;z-index:1;inset:0;display:block;width:100vw;height:100vh;object-fit:cover;background:#070707;user-select:none;-webkit-user-drag:none}
+#camera-video{position:fixed;z-index:1;inset:0;display:block;width:100vw;height:100vh;object-fit:cover;background:#070707;user-select:none;-webkit-user-drag:none}
 .topbar{position:fixed;z-index:10;top:0;left:0;width:100%;padding:25px 30px;display:flex;justify-content:space-between;font:500 10px DM Mono,monospace;letter-spacing:.18em;pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,.5)}
 .intro{position:fixed;z-index:9;left:7vw;top:50%;transform:translateY(-50%);pointer-events:none;text-shadow:0 2px 22px rgba(0,0,0,.5)}
 .intro p,.intro span,.eyebrow{font:500 10px DM Mono,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
