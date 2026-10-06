@@ -1,160 +1,108 @@
-const canvas = document.getElementById("sequence");
-const ctx = canvas.getContext("2d");
 const section = document.getElementById("camera-sequence");
+const video = document.getElementById("camera");
 const loading = document.getElementById("loading");
 const counter = document.getElementById("counter");
 const progressBar = document.getElementById("progress");
+const hint = document.getElementById("hint");
 
-const FRAME_COUNT = 169;
-const FRAME_PATH = "./frames/frame-";
-const MAX_DPR = 2;
-
-const images = new Array(FRAME_COUNT);
-let loadedCount = 0;
-let targetFrame = 0;
-let currentFrame = 0;
-let lastFrame = -1;
+let duration = 0;
+let target = 0;
+let current = 0;
 let ready = false;
+let primed = false;
 let raf = 0;
 
-function setLoading(percent, label = "LOADING CAMERA") {
-  if (!loading) return;
+function setLoading(percent, label) {
   const b = loading.querySelector("b");
   loading.firstChild.textContent = label + " ";
   if (b) b.textContent = Math.round(percent) + "%";
   if (percent >= 100) {
-    setTimeout(() => loading.classList.add("done"), 300);
+    setTimeout(() => loading.classList.add("done"), 250);
   }
 }
 
-function resizeCanvas() {
-  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-  canvas.width = Math.max(1, Math.round(window.innerWidth * dpr));
-  canvas.height = Math.max(1, Math.round(window.innerHeight * dpr));
-  canvas.style.width = "100vw";
-  canvas.style.height = "100vh";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawFrame(lastFrame < 0 ? 0 : lastFrame);
+function updateScroll() {
+  if (!duration) return;
+
+  const rect = section.getBoundingClientRect();
+  const range = Math.max(1, section.offsetHeight - innerHeight);
+  const progress = Math.max(0, Math.min(1, -rect.top / range));
+
+  target = progress * Math.max(0, duration - 0.05);
+
+  progressBar.style.width = (progress * 100) + "%";
+  counter.textContent =
+    current.toFixed(1).padStart(4, "0") + "s / " + duration.toFixed(1) + "s";
+
+  if (progress > 0.015) hint.textContent = "Scroll to control the camera";
 }
 
-function frameUrl(index) {
-  return FRAME_PATH + String(index + 1).padStart(3, "0") + ".jpg";
+async function primeVideo() {
+  if (primed) return;
+  primed = true;
+
+  // Muted + playsinline lets iOS/Safari initialize the decoder.
+  try {
+    await video.play();
+    video.pause();
+  } catch (_) {
+    // Seeking still works on browsers that reject autoplay.
+  }
+
+  try { video.currentTime = 0.001; } catch (_) {}
 }
 
-function loadFrame(index) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.decoding = "async";
-    img.onload = () => {
-      images[index] = img;
-      loadedCount++;
-      resolve(true);
-    };
-    img.onerror = () => resolve(false);
-    img.src = frameUrl(index);
-  });
+function render() {
+  if (ready) {
+    // Smoothly follow the scroll position.
+    current += (target - current) * 0.28;
+    if (Math.abs(target - current) < 0.008) current = target;
+
+    // Direct seeking is deliberately done every animation frame.
+    // This is more reliable on Safari/iPhone than waiting for scroll events.
+    if (Math.abs(video.currentTime - current) > 0.012) {
+      try { video.currentTime = current; } catch (_) {}
+    }
+
+    counter.textContent =
+      current.toFixed(1).padStart(4, "0") + "s / " + duration.toFixed(1) + "s";
+  }
+
+  raf = requestAnimationFrame(render);
 }
 
-async function loadSequence() {
-  // Load the first frame immediately so the page never sits on a black screen.
-  const first = await loadFrame(0);
+video.addEventListener("loadedmetadata", async () => {
+  duration = video.duration;
 
-  if (!first) {
+  if (!Number.isFinite(duration) || duration <= 0) {
     loading.classList.add("error");
-    loading.innerHTML = "CAMERA LOAD FAILED — <b>FRAME 001</b>";
+    loading.innerHTML = "CAMERA LOAD FAILED — <b>NO DURATION</b>";
     return;
   }
 
   ready = true;
-  setLoading(8, "CAMERA READY");
-  drawFrame(0);
+  setLoading(70, "INITIALIZING CAMERA");
+  await primeVideo();
 
-  // Load several frames in parallel. This is much faster and lighter than
-  // downloading/extracting the ZIP in the visitor's browser.
-  const batchSize = 12;
-
-  for (let start = 1; start < FRAME_COUNT; start += batchSize) {
-    const jobs = [];
-    for (let i = start; i < Math.min(start + batchSize, FRAME_COUNT); i++) {
-      jobs.push(loadFrame(i));
-    }
-    await Promise.all(jobs);
-    setLoading(8 + (loadedCount / FRAME_COUNT) * 92, "PREPARING CAMERA");
-  }
+  try { video.currentTime = 0; } catch (_) {}
 
   setLoading(100, "CAMERA READY");
-}
+  updateScroll();
+});
 
-function nearestLoaded(index) {
-  index = Math.max(0, Math.min(FRAME_COUNT - 1, index));
-  if (images[index]) return index;
+video.addEventListener("canplay", () => {
+  if (duration) setLoading(100, "CAMERA READY");
+});
 
-  for (let d = 1; d < FRAME_COUNT; d++) {
-    if (index - d >= 0 && images[index - d]) return index - d;
-    if (index + d < FRAME_COUNT && images[index + d]) return index + d;
-  }
-  return 0;
-}
+video.addEventListener("error", () => {
+  console.error("Camera video error:", video.error);
+  loading.classList.add("error");
+  loading.innerHTML = "CAMERA LOAD FAILED — <b>MP4 ERROR</b>";
+});
 
-function drawFrame(index) {
-  if (!ready) return;
-
-  const actual = nearestLoaded(Math.round(index));
-  if (actual === lastFrame && lastFrame >= 0) return;
-
-  const image = images[actual];
-  if (!image || !image.naturalWidth) return;
-
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const scale = Math.max(vw / image.naturalWidth, vh / image.naturalHeight);
-  const w = image.naturalWidth * scale;
-  const h = image.naturalHeight * scale;
-  const x = (vw - w) / 2;
-  const y = (vh - h) / 2;
-
-  ctx.fillStyle = "#070707";
-  ctx.fillRect(0, 0, vw, vh);
-  ctx.drawImage(image, x, y, w, h);
-
-  lastFrame = actual;
-}
-
-function updateScroll() {
-  if (!section) return;
-
-  const rect = section.getBoundingClientRect();
-  const scrollable = Math.max(1, section.offsetHeight - window.innerHeight);
-  const progress = Math.max(0, Math.min(1, -rect.top / scrollable));
-
-  targetFrame = progress * (FRAME_COUNT - 1);
-
-  if (progressBar) {
-    progressBar.style.width = (progress * 100) + "%";
-  }
-
-  if (counter) {
-    counter.textContent =
-      String(Math.round(targetFrame) + 1).padStart(3, "0") +
-      " / " + FRAME_COUNT;
-  }
-}
-
-function animate() {
-  currentFrame += (targetFrame - currentFrame) * 0.2;
-  if (Math.abs(targetFrame - currentFrame) < 0.02) {
-    currentFrame = targetFrame;
-  }
-
-  drawFrame(currentFrame);
-  raf = requestAnimationFrame(animate);
-}
-
-window.addEventListener("resize", resizeCanvas);
 window.addEventListener("scroll", updateScroll, { passive: true });
-window.addEventListener("beforeunload", () => cancelAnimationFrame(raf));
+window.addEventListener("resize", updateScroll, { passive: true });
 
-resizeCanvas();
+video.load();
 updateScroll();
-loadSequence();
-animate();
+render();
