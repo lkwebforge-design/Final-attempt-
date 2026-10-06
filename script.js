@@ -3,7 +3,6 @@ const section=document.getElementById("camera-sequence");
 const loading=document.getElementById("loading");
 const counter=document.getElementById("counter");
 const progress=document.getElementById("progress");
-const intro=document.querySelector(".intro");
 
 const TOTAL=169;
 const cache=new Map();
@@ -48,15 +47,6 @@ function scrollUpdate(){
   progress.style.width=(p*100)+"%";
   counter.textContent=String(Math.round(target)+1).padStart(3,"0")+" / "+TOTAL;
   warm(Math.round(target));
-
-  // Keep the opening copy attached to the hero instead of letting it
-  // visually follow the page into the sequence. It fades away early.
-  if(intro){
-    const fade=Math.max(0,Math.min(1,p/0.12));
-    intro.style.opacity=String(1-fade);
-    intro.style.transform="translateY(calc(-50% - "+(fade*24)+"px))";
-    intro.style.visibility=fade>=1?"hidden":"visible";
-  }
 }
 
 function animate(){
