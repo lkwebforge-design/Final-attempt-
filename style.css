@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap');
+
+:root{--bg:#080808;--fg:#f5f3ee;--muted:#8d8b86;--line:rgba(255,255,255,.16)}
+*{box-sizing:border-box}
+html{scroll-behavior:auto}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Manrope,system-ui,sans-serif}
+.sequence{height:620vh;position:relative;background:#080808}
+#source{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+canvas{position:sticky;top:0;width:100%;height:100vh;display:block;background:#080808}
+.hud{position:fixed;z-index:5;top:0;left:0;width:100%;padding:28px 32px;display:grid;grid-template-columns:1fr 220px 1fr;align-items:center;pointer-events:none;mix-blend-mode:difference}
+.brand,.frame,.eyebrow,.hint,.sequence-end{font:500 10px/1 DM Mono,monospace;letter-spacing:.18em;text-transform:uppercase}
+.frame{text-align:right}
+.progress{height:1px;background:rgba(255,255,255,.28);position:relative}
+.progress span{position:absolute;inset:0 auto 0 0;width:0;background:#fff;transform-origin:left}
+.intro{position:fixed;z-index:4;left:7vw;top:50%;transform:translateY(-42%);max-width:760px;pointer-events:none}
+.eyebrow{color:rgba(255,255,255,.62);margin:0 0 24px}
+h1{font-size:clamp(52px,8.4vw,128px);line-height:.91;letter-spacing:-.065em;margin:0;font-weight:600}
+h1 em{font-style:normal;color:#a6a39d}
+.hint{margin-top:34px;color:rgba(255,255,255,.55)}
+.sequence-end{position:absolute;z-index:4;bottom:6vh;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.5)}
+.after{min-height:100vh;padding:16vh 8vw;display:flex;align-items:center;background:#111}
+.after>div{max-width:850px}
+.after h2{font-size:clamp(48px,7vw,104px);line-height:.95;letter-spacing:-.06em;margin:0 0 36px}
+.copy{max-width:580px;color:#9d9a94;font-size:18px;line-height:1.7}
+.after a{display:inline-block;margin-top:32px;color:#fff;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.45);padding-bottom:8px}
+@media(max-width:700px){
+ .hud{padding:20px 18px;grid-template-columns:1fr 100px 1fr}
+ .intro{left:20px;right:20px}
+ .intro h1{font-size:clamp(48px,15vw,82px)}
+ .hint{margin-top:24px}
+ .after{padding:12vh 20px}
+}
