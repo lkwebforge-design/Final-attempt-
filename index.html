@@ -4,35 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070707">
-<meta name="description" content="A cinematic scroll-driven camera experience.">
-<title>Camera — Scroll Experience</title>
+<meta name="description" content="A cinematic camera sequence controlled frame-by-frame by scrolling.">
+<title>Camera — Scroll Sequence</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <section class="camera-sequence" id="camera-sequence">
-  <video id="camera-video" playsinline muted preload="auto" poster="" aria-hidden="true">
-    <source src="./DAD11FBC-C257-4ED7-B269-BC67BDB22D2B.MP4" type="video/mp4">
-  </video>
-
-  <div class="topbar"><span>CAMERA / 01</span><span class="counter" id="counter">00.0s / —</span></div>
-
+  <canvas id="sequence"></canvas>
+  <div class="topbar"><span>CAMERA / 01</span><span class="counter" id="counter">001 / 169</span></div>
   <div class="intro">
     <p>SCROLL-DRIVEN OBJECT STUDY</p>
     <h1>Every scroll.<br><i>One frame.</i></h1>
-    <span id="hint">Scroll to explore ↓</span>
+    <span>Scroll to explore ↓</span>
   </div>
-
   <div class="loading" id="loading">LOADING CAMERA <b>0%</b></div>
   <div class="bar"><span id="progress"></span></div>
 </section>
-
 <section class="next-section">
   <p class="eyebrow">THE SEQUENCE</p>
   <h2>A camera that moves<br>with your scroll.</h2>
-  <p>Scroll through the sequence frame-by-frame. The camera position is tied directly to your scroll progress.</p>
+  <p>The camera frames are extracted during the GitHub Pages deployment, then played directly from the generated frame sequence.</p>
   <a href="#camera-sequence">Replay ↑</a>
 </section>
-
 <script src="script.js"></script>
 </body>
 </html>
