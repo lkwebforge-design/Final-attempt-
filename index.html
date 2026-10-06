@@ -11,28 +11,22 @@
 <body>
 <section class="camera-sequence" id="camera-sequence">
   <canvas id="sequence"></canvas>
-
-  <div class="topbar">
-    <span>CAMERA / 01</span>
-    <span class="counter" id="counter">001 / 169</span>
-  </div>
-
+  <div class="topbar"><span>CAMERA / 01</span><span class="counter" id="counter">001 / —</span></div>
   <div class="intro">
     <p>SCROLL-DRIVEN OBJECT STUDY</p>
     <h1>Every scroll.<br><i>One frame.</i></h1>
     <span>Scroll to explore ↓</span>
   </div>
-
-  <div class="loading" id="loading">LOADING SEQUENCE <b>0%</b></div>
+  <div class="loading" id="loading">LOADING CAMERA <b>0%</b></div>
   <div class="bar"><span id="progress"></span></div>
 </section>
-
 <section class="next-section">
   <p class="eyebrow">THE SEQUENCE</p>
   <h2>A camera that moves<br>with your scroll.</h2>
-  <p>169 frames. One continuous interaction. Scroll back up and the sequence reverses just as precisely.</p>
+  <p>The camera frames are loaded directly from the ZIP you uploaded. Scroll down to drive the sequence forward, then scroll back up to reverse it.</p>
   <a href="#camera-sequence">Replay ↑</a>
 </section>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
